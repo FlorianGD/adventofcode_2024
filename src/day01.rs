@@ -18,9 +18,8 @@ pub fn part1(input: Vec<(i32, i32)>) -> u32 {
 }
 
 pub fn part2(input: Vec<(i32, i32)>) -> i32 {
-    let (l1, l2): (Vec<i32>, Vec<i32>) = input.iter().cloned().unzip();
-    let c1 = l1.iter().collect::<Counter<_, i32>>();
-    let c2 = l2.iter().collect::<Counter<_, i32>>();
+    let (c1, c2): (Counter<_, i32>, Counter<_, i32>) = input.iter().cloned().unzip();
+
     c1.iter()
         .map(|(k, v)| c2.get(k).unwrap_or(&0) * v * *k)
         .sum()
