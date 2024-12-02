@@ -1,0 +1,24 @@
+run = "cargo run"
+[nix]
+channel = "stable-24_05"
+
+[deployment]
+run = ["sh", "-c", "cargo run"]
+
+[packager]
+language = "rust"
+
+[packager.features]
+packageSearch = true
+
+
+[gitHubImport]
+requiredFiles = [".replit", "replit.nix"]
+
+[languages]
+
+[languages.rust]
+pattern = "**/*.rs"
+
+[languages.rust.languageServer]
+start = "rust-analyzer"
