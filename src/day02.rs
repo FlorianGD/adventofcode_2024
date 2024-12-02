@@ -64,12 +64,12 @@ mod test {
     fn test_parse_input() {
         let input = indoc! {
         "7 6 4 2 1
-    1 2 7 8 9
-    9 7 6 2 1
-    1 3 2 4 5
-    8 6 4 4 1
-    1 3 6 7 9
-    "};
+        1 2 7 8 9
+        9 7 6 2 1
+        1 3 2 4 5
+        8 6 4 4 1
+        1 3 6 7 9
+        "};
         let vec = parse_input(input);
         assert_eq!(vec.len(), 6);
         assert_eq!(
@@ -97,26 +97,26 @@ mod test {
     #[test]
     fn test_part1() {
         let input = indoc! {
-"7 6 4 2 1
-1 2 7 8 9
-9 7 6 2 1
-1 3 2 4 5
-8 6 4 4 1
-1 3 6 7 9
-"};
+        "7 6 4 2 1
+        1 2 7 8 9
+        9 7 6 2 1
+        1 3 2 4 5
+        8 6 4 4 1
+        1 3 6 7 9
+        "};
         let vec = parse_input(input);
         assert_eq!(part1(vec), 2);
     }
     #[test]
     fn test_part2() {
         let input = indoc! {
-"7 6 4 2 1
-1 2 7 8 9
-9 7 6 2 1
-1 3 2 4 5
-8 6 4 4 1
-1 3 6 7 9
-"};
+        "7 6 4 2 1
+        1 2 7 8 9
+        9 7 6 2 1
+        1 3 2 4 5
+        8 6 4 4 1
+        1 3 6 7 9
+        "};
         let vec = parse_input(input);
         assert_eq!(part2(vec), 4);
     }
