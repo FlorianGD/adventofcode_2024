@@ -17,7 +17,7 @@ mod tests {
         let input = indoc! {
             ""
         };
-        let expected = 0;
+        let expected = vec![0];
         assert_eq!(parse_input(input), expected);
     }
 }
