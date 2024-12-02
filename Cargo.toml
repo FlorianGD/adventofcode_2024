@@ -1,0 +1,16 @@
+[package]
+name = "adventofcode2024"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0.79"
+aoc-next = "0.1.0"
+counter = "0.6.0"
+itertools = "0.12.0"
+
+[dev-dependencies]
+indoc = "2.0.4"
+pretty_assertions = "1.4.0"
