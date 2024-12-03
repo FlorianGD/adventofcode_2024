@@ -4,11 +4,11 @@ use std::sync::LazyLock;
 static RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"mul\((\d+),(\d+)\)").unwrap());
 
 pub fn parse_input(input: &str) -> Vec<(u32, u32)> {
-    input
-        .replace("\n", "")
-        .lines()
-        .flat_map(|line| RE.captures_iter(line).map(|c| c.extract()))
-        .map(|(_, [a, b])| (a.parse().unwrap(), b.parse().unwrap()))
+    RE.captures_iter(input)
+        .map(|c| {
+            let (_, [a, b]) = c.extract();
+            (a.parse().unwrap(), b.parse().unwrap())
+        })
         .collect()
 }
 
