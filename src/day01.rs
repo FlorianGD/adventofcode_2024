@@ -1,11 +1,12 @@
+use anyhow::{Context, Result};
 use counter::Counter;
 
-pub fn parse_input(input: &str) -> Vec<(i32, i32)> {
+pub fn parse_input(input: &str) -> Result<Vec<(i32, i32)>> {
     input
         .lines()
         .map(|line| {
-            let (p1, p2) = line.split_once("   ").unwrap();
-            (p1.parse().unwrap(), p2.parse().unwrap())
+            let (p1, p2) = line.split_once("   ").context("bad input")?;
+            Ok((p1.parse()?, p2.parse()?))
         })
         .collect()
 }
@@ -29,45 +30,32 @@ pub fn part2(input: Vec<(i32, i32)>) -> i32 {
 mod test {
     use super::*;
     use indoc::indoc;
+    const INPUT: &str = indoc! {
+    "3   4
+    4   3
+    2   5
+    1   3
+    3   9
+    3   3
+    "};
 
     #[test]
     fn test_parse_input() {
-        let input = indoc! {
-        "3   4
-        4   3
-        2   5
-        1   3
-        3   9
-        3   3
-        "};
-        let vec = parse_input(input);
+        // the test fails if `unwrap` panics, which is what we want
+        let vec = parse_input(INPUT).unwrap();
         assert_eq!(vec, vec![(3, 4), (4, 3), (2, 5), (1, 3), (3, 9), (3, 3)]);
     }
+
     #[test]
     fn test_part1() {
-        let input = indoc! {
-        "3   4
-        4   3
-        2   5
-        1   3
-        3   9
-        3   3
-        "};
-        let vec = parse_input(input);
+        let vec = parse_input(INPUT).unwrap();
         let result = part1(vec);
         assert_eq!(result, 11);
     }
+
     #[test]
     fn test_part2() {
-        let input = indoc! {
-        "3   4
-        4   3
-        2   5
-        1   3
-        3   9
-        3   3
-        "};
-        let vec = parse_input(input);
+        let vec = parse_input(INPUT).unwrap();
         let result = part2(vec);
         assert_eq!(result, 31);
     }
