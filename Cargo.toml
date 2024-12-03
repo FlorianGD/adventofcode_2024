@@ -10,6 +10,7 @@ anyhow = "1.0.79"
 aoc-next = "0.1.0"
 counter = "0.6.0"
 itertools = "0.12.0"
+regex = "1.11.1"
 
 [dev-dependencies]
 indoc = "2.0.4"
