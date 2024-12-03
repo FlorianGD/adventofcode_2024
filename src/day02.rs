@@ -1,5 +1,7 @@
 use std::str::FromStr;
 
+use itertools::Itertools;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Record {
     levels: Vec<i32>,
@@ -18,12 +20,12 @@ impl Record {
     fn is_safe(&self) -> bool {
         self.levels
             .iter()
-            .zip(self.levels.iter().skip(1))
+            .tuple_windows()
             .all(|(a, b)| a > b && (a - b) >= 1 && (a - b) <= 3)
             || self
                 .levels
                 .iter()
-                .zip(self.levels.iter().skip(1))
+                .tuple_windows()
                 .all(|(b, a)| a > b && (a - b) >= 1 && (a - b) <= 3)
     }
 
@@ -60,17 +62,18 @@ mod test {
     use super::*;
     use indoc::indoc;
 
-    #[test]
-    fn test_parse_input() {
-        let input = indoc! {
-        "7 6 4 2 1
+    const INPUT: &str = indoc! {
+    "7 6 4 2 1
         1 2 7 8 9
         9 7 6 2 1
         1 3 2 4 5
         8 6 4 4 1
         1 3 6 7 9
         "};
-        let vec = parse_input(input);
+
+    #[test]
+    fn test_parse_input() {
+        let vec = parse_input(INPUT);
         assert_eq!(vec.len(), 6);
         assert_eq!(
             vec[0],
@@ -79,6 +82,7 @@ mod test {
             }
         );
     }
+
     #[test]
     fn test_is_safe() {
         let r = Record {
@@ -94,30 +98,16 @@ mod test {
         };
         assert!(!r.is_safe());
     }
+
     #[test]
     fn test_part1() {
-        let input = indoc! {
-        "7 6 4 2 1
-        1 2 7 8 9
-        9 7 6 2 1
-        1 3 2 4 5
-        8 6 4 4 1
-        1 3 6 7 9
-        "};
-        let vec = parse_input(input);
+        let vec = parse_input(INPUT);
         assert_eq!(part1(vec), 2);
     }
+
     #[test]
     fn test_part2() {
-        let input = indoc! {
-        "7 6 4 2 1
-        1 2 7 8 9
-        9 7 6 2 1
-        1 3 2 4 5
-        8 6 4 4 1
-        1 3 6 7 9
-        "};
-        let vec = parse_input(input);
+        let vec = parse_input(INPUT);
         assert_eq!(part2(vec), 4);
     }
 }
