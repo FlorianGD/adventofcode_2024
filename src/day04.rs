@@ -3,7 +3,7 @@ use rustc_hash::FxHashMap as HashMap;
 
 type Grid = HashMap<Complex<isize>, char>;
 
-const DIRECTIONS: &[Complex<isize>; 8] = &[
+const DIRECTIONS: [Complex<isize>; 8] = [
     Complex::new(0, 1),
     Complex::new(0, -1),
     Complex::new(1, 0),
@@ -46,8 +46,8 @@ fn check_xmas(x_pos: Complex<isize>, direction: Complex<isize>, grid: &Grid) -> 
 
 fn check_all_directions(x_pos: Complex<isize>, grid: &Grid) -> usize {
     DIRECTIONS
-        .iter()
-        .filter(|&direction| check_xmas(x_pos, *direction, grid))
+        .into_iter()
+        .filter(|&direction| check_xmas(x_pos, direction, grid))
         .count()
 }
 
@@ -79,27 +79,28 @@ fn check_cross_mas(a_pos: Complex<isize>, grid: &Grid) -> bool {
     let top_right = a_pos + Complex::new(1, -1);
     let bottom_left = a_pos + Complex::new(-1, 1);
 
-    match grid.get(&top_left) {
-        None => return false,
-        Some(val) => match grid.get(&bottom_right) {
-            None => return false,
-            Some(val2) => {
-                if val == val2 || !"MS".contains(*val) || !"MS".contains(*val2) {
-                    return false;
-                }
-            }
-        },
+    // '@' here denotes a subpattern
+    // zip allows use to check both values
+    // not sure if this is clearer than the bare match on the previous commit
+    if let Some((val @ ('M' | 'S'), val2 @ ('M' | 'S'))) =
+        grid.get(&top_left).zip(grid.get(&bottom_right))
+    {
+        // val and val2 are either 'M' or 'S', we are ok if they are different
+        if val == val2 {
+            return false;
+        }
+    } else {
+        // val and val2 are either None or not in "MS"
+        return false;
     }
-    match grid.get(&top_right) {
-        None => return false,
-        Some(val) => match grid.get(&bottom_left) {
-            None => return false,
-            Some(val2) => {
-                if val == val2 || !"MS".contains(*val) || !"MS".contains(*val2) {
-                    return false;
-                }
-            }
-        },
+    if let Some((val @ ('M' | 'S'), val2 @ ('M' | 'S'))) =
+        grid.get(&top_right).zip(grid.get(&bottom_left))
+    {
+        if val == val2 {
+            return false;
+        }
+    } else {
+        return false;
     }
     true
 }
