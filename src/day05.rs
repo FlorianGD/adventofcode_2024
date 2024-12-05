@@ -1,23 +1,8 @@
 use rustc_hash::FxHashMap as HashMap;
 use rustc_hash::FxHashSet as HashSet;
 
-type Rules = HashMap<usize, Rule>;
+type Rules = HashMap<usize, HashSet<usize>>;
 type Pages = Vec<Vec<usize>>;
-
-#[derive(Debug, Clone, Default)]
-pub struct Rule {
-    before: HashSet<usize>,
-    after: HashSet<usize>,
-}
-
-impl Rule {
-    fn add_after(&mut self, after: usize) {
-        self.after.insert(after);
-    }
-    fn add_before(&mut self, before: usize) {
-        self.before.insert(before);
-    }
-}
 
 pub fn parse_input(input: &str) -> (Rules, Pages) {
     let (rules_list, prints) = input.split_once("\n\n").unwrap();
@@ -33,26 +18,18 @@ pub fn parse_input(input: &str) -> (Rules, Pages) {
         let before = before.parse().unwrap();
         let after = after.parse().unwrap();
         rules
-            .entry(before)
-            .or_insert_with(Rule::default)
-            .add_after(after);
-        rules
             .entry(after)
-            .or_insert_with(Rule::default)
-            .add_before(before);
+            .or_insert_with(HashSet::default)
+            .insert(before);
     }
     (rules, pages)
 }
 
 fn check_page(page: &[usize], rules: &Rules) -> bool {
     for i in 0..page.len() {
-        let pages_before: HashSet<usize> = page.iter().take(i).copied().collect();
         let pages_after: HashSet<usize> = page.iter().skip(i).copied().collect();
         if let Some(rule) = rules.get(&page[i]) {
-            if rule.after.intersection(&pages_before).next().is_some() {
-                return false;
-            }
-            if rule.before.intersection(&pages_after).next().is_some() {
+            if rule.intersection(&pages_after).next().is_some() {
                 return false;
             }
         }
@@ -71,25 +48,16 @@ pub fn part1((rules, pages): (Rules, Pages)) -> usize {
 /// Fix the order and return the middle value
 fn fix_order(page: &[usize], rules: &Rules) -> usize {
     let page_set: HashSet<usize> = page.iter().copied().collect();
-    page.iter()
-        .map(|p| {
-            (
-                p,
-                rules[p]
-                    .before
-                    .intersection(&page_set)
-                    .collect::<Vec<_>>()
-                    .len(),
-            )
+    *page
+        .iter()
+        .find(|&p| {
+            rules
+                .get(p) // funnily, this is not needed for the real input, only for the tests
+                .unwrap_or(&HashSet::default())
+                .intersection(&page_set)
+                .count()
+                == page_set.len() / 2
         })
-        .filter_map(|(p, n)| {
-            if n == page_set.len() / 2 {
-                Some(*p)
-            } else {
-                None
-            }
-        })
-        .next()
         .unwrap()
 }
 
@@ -141,12 +109,9 @@ mod tests {
     #[test]
     fn test_parse_input() {
         let (rules, pages) = parse_input(INPUT);
-        assert_eq!(rules[&75].after, HashSet::from_iter([29, 53, 47, 61, 13]));
-        // println!("{:#?}", rules);
-        assert_eq!(rules[&75].before, HashSet::from_iter([97]));
+        assert_eq!(rules[&75], HashSet::from_iter([97]));
         assert_eq!(pages.len(), 6);
         assert_eq!(pages[0], vec![75, 47, 61, 53, 29]);
-        // panic!();
     }
 
     #[test]
