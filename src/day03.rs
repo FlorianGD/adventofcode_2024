@@ -1,9 +1,10 @@
 use regex::Regex;
-use std::sync::LazyLock;
+// use std::sync::LazyLock;
 
-static RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"mul\((\d+),(\d+)\)").unwrap());
+//static RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"mul\((\d+),(\d+)\)").unwrap());
 
 pub fn parse_input(input: &str) -> Vec<(u32, u32)> {
+    let RE = Regex::new(r"mul\((\d+),(\d+)\)").unwrap();
     RE.captures_iter(input)
         .map(|c| {
             let (_, [a, b]) = c.extract();
