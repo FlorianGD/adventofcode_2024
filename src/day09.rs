@@ -20,7 +20,6 @@ pub fn parse_input(input: &str) -> (Values, Blanks) {
 }
 
 pub fn part1((values, blanks): (Values, Blanks)) -> usize {
-    let blank_lengths: usize = blanks.iter().map(|r| r.len()).sum();
     let values_lengths: usize = values.iter().map(|(_, r)| r.len()).sum();
     // all the indices < values_length will not change
     let mut final_values: Values = values
@@ -33,49 +32,42 @@ pub fn part1((values, blanks): (Values, Blanks)) -> usize {
         .into_iter()
         .filter(|(_, r)| r.end > values_lengths)
         .collect();
-    dbg!(&values);
     for blank_range in blanks {
+        if blank_range.start > values_lengths {
+            if !values.is_empty() {
+                final_values.extend(values);
+            }
+            break;
+        }
         let mut current_position = blank_range.start;
         let mut len_to_fill = blank_range.len();
         if len_to_fill == 0 {
             continue;
         }
-        dbg!(&blank_range);
-        while dbg!(len_to_fill) > 0 {
+        while len_to_fill > 0 {
             if values.is_empty() {
-                // fill with the remaining values
-                println!("Final values because empty {:#?}", final_values);
-                // println!("We extend with {:#?}", values);
-                // final_values.extend(values);
                 break;
             }
             let (value, range) = values.pop().unwrap();
-            if dbg!(range.len()) <= len_to_fill {
+            if range.len() <= len_to_fill {
                 final_values.push((value, current_position..(current_position + range.len())));
                 len_to_fill -= range.len();
                 current_position += range.len();
             } else {
-                final_values.push((
-                    value,
-                    dbg!(current_position..(current_position + len_to_fill)),
-                ));
+                final_values.push((value, current_position..(current_position + len_to_fill)));
                 current_position += len_to_fill;
                 values.push((
                     value,
-                    dbg!(current_position..(current_position + range.len() - len_to_fill)),
+                    current_position..(current_position + range.len() - len_to_fill),
                 ));
                 len_to_fill = 0;
-                dbg!(&final_values);
-                dbg!(&values);
             }
         }
     }
-    println!("Final values {:#?}", final_values);
     final_values
         .into_iter()
         .map(|(val, r)| val * (r.sum::<usize>()))
         .sum()
-    // 6323641486035 too high
 }
 
 #[cfg(test)]
