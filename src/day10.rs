@@ -30,22 +30,12 @@ pub fn parse_input(input: &str) -> (Grid, Vec<Pos>, Vec<Pos>) {
     (grid, zeros, nines)
 }
 
-fn possible_nexts(pos: Pos, grid: &Grid) -> Vec<Pos> {
-    let target_val = grid[&pos] + 1;
+fn possible_nexts<'a>(pos: &'a Pos, grid: &'a Grid) -> impl Iterator<Item = Pos> + use<'a> {
+    let target_val = grid[pos] + 1;
     DIRECTIONS
         .into_iter()
-        .filter_map(|dir| {
-            if let Some(p) = grid.get(&(pos + dir)) {
-                if *p == target_val {
-                    Some(pos + dir)
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
-        })
-        .collect()
+        .filter(move |dir| grid.get(&(pos + dir)) == Some(&target_val))
+        .map(move |dir| pos + dir)
 }
 
 pub fn part1((grid, zeros, nines): (Grid, Vec<Pos>, Vec<Pos>)) -> usize {
@@ -57,7 +47,7 @@ pub fn part1((grid, zeros, nines): (Grid, Vec<Pos>, Vec<Pos>)) -> usize {
             if nines.contains(&pos) {
                 reached.insert(pos);
             } else {
-                stack.extend(possible_nexts(pos, &grid));
+                stack.extend(possible_nexts(&pos, &grid));
             }
         }
         total_scores += reached.len();
@@ -73,7 +63,7 @@ pub fn part2((grid, zeros, nines): (Grid, Vec<Pos>, Vec<Pos>)) -> usize {
             if nines.contains(&pos) {
                 total_scores += 1;
             }
-            stack.extend(possible_nexts(pos, &grid));
+            stack.extend(possible_nexts(&pos, &grid));
         }
     }
     total_scores
@@ -114,13 +104,14 @@ mod tests {
     fn test_possible_next() {
         let (grid, zeros, _) = parse_input(INPUT);
         assert_eq!(zeros[0], Complex::new(2, 0));
-        let nexts = possible_nexts(zeros[0], &grid);
+        let nexts = possible_nexts(&zeros[0], &grid);
         assert_eq!(
             HashSet::from_iter(nexts),
             HashSet::from_iter([Complex::new(2, 1), Complex::new(3, 0)])
         );
-        let nexts = possible_nexts(Complex::new(1, 0), &grid);
-        assert!(nexts.is_empty());
+        let pos = Complex::new(1, 0);
+        let mut nexts = possible_nexts(&pos, &grid);
+        assert_eq!(nexts.next(), None);
     }
 
     #[test]
