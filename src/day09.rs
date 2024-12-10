@@ -70,6 +70,33 @@ pub fn part1((values, blanks): (Values, Blanks)) -> usize {
         .sum()
 }
 
+pub fn part2((values, blanks): (Values, Blanks)) -> usize {
+    let mut final_values: Values = vec![];
+    let mut values: Values = values.into_iter().skip(1).collect(); // 0 does not contribute to the output
+    let mut blanks: Blanks = blanks.into_iter().filter(|r| !r.is_empty()).collect();
+
+    'outer: while let Some((value, range)) = values.pop() {
+        for (i, blank_range) in blanks.iter().enumerate() {
+            if blank_range.len() >= range.len() && blank_range.start < range.start {
+                let mut new_range = blank_range.clone();
+                new_range.end = new_range.start + range.len();
+                let new_blank_range = new_range.end..blank_range.end;
+                blanks[i] = new_blank_range;
+                final_values.push((value, new_range));
+                continue 'outer;
+            }
+        }
+        final_values.push((value, range));
+    }
+    // 8505770332595 too high
+    // 8505770332595
+
+    final_values
+        .into_iter()
+        .map(|(val, r)| val * (r.sum::<usize>()))
+        .sum()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -93,4 +120,16 @@ mod tests {
         let input = parse_input(INPUT);
         assert_eq!(part1(input), 1928);
     }
+
+    #[test]
+    fn test_part2() {
+        let input = parse_input(INPUT);
+        assert_eq!(part2(input), 2858);
+        // panic!("show the logs");
+        assert_eq!(part2(parse_input("12345")), 132);
+    }
 }
+
+// 0..111....22222
+// 000000000011111
+// 012345678901234
