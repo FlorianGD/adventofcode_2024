@@ -1,5 +1,5 @@
 use adventofcode2024::{
-    day01, day02, day03, day04, day05, day06, day07, day08, day09, day10, day11,
+    day01, day02, day03, day04, day05, day06, day07, day08, day09, day10, day11, day12,
 };
 
 use anyhow::Result;
@@ -31,6 +31,7 @@ const AOC: Aoc = Aoc {
         solution! {10, parser!{ day10::parse_input }, solver!{ day10::part2 }},
         solution! {11, parser!{ day11::parse_input }, solver!{ day11::part1 }},
         solution! {11, parser!{ day11::parse_input }, solver!{ day11::part2 }},
+        solution! {12, parser!{ day12::parse_input }, solver!{ day12::part1 }},
     ],
 };
 
