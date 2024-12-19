@@ -37,6 +37,7 @@ const AOC: Aoc = Aoc {
         solution! {13, parser!{ day13::parse_input }, solver!{ day13::part2 }},
         solution! {14, parser!{ day14::parse_input }, solver!{ day14::part1 }},
         solution! {14, parser!{ day14::parse_input }, solver!{ day14::part2 }},
+        solution! {15, parser!{ day15::parse_input }, solver!{ day15::part1 }},
         solution! {16, parser!{ day16::parse_input }, solver!{ day16::part1 }},
         solution! {16, parser!{ day16::parse_input }, solver!{ day16::part2 }},
         solution! {18, parser!{ day18::parse_input }, solver!{ day18::part1 }},
