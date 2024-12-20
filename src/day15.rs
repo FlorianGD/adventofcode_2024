@@ -150,6 +150,9 @@ pub fn parse_input_p2(input: &str) -> (Pos, Grid2, Directions) {
 }
 
 fn _print_grid(grid: &Grid2, robot_pos: &Pos) {
+    if grid.is_empty() {
+        return;
+    }
     let x_max = grid.iter().map(|(p, _)| p.re).max().unwrap();
     let y_max = grid.iter().map(|(p, _)| p.im).max().unwrap();
     for j in 0..=y_max {
@@ -173,12 +176,22 @@ fn _print_grid(grid: &Grid2, robot_pos: &Pos) {
     println!();
 }
 
+/// Give the Left side of each box that can move
 fn can_move_p2(pos: &Pos, direction: &Direction, grid: &Grid2) -> Option<HashSet<Pos>> {
     let new_pos = pos + direction.val();
     match (grid[&new_pos], direction) {
-        (ElementLarge::Empty, _) => Some(HashSet::from_iter([new_pos])),
+        (ElementLarge::Empty, _) => Some(HashSet::default()),
         (ElementLarge::Wall, _) => None,
-        (_, Direction::Left | Direction::Right) => can_move_p2(&new_pos, direction, grid),
+        (e, Direction::Left | Direction::Right) => {
+            if let Some(mut r) = can_move_p2(&new_pos, direction, grid) {
+                if e == ElementLarge::BoxLeft {
+                    r.insert(new_pos);
+                }
+                Some(r)
+            } else {
+                None
+            }
+        }
         // the difficulty arises when we move a block up or down
         (ElementLarge::BoxLeft, _) => {
             let can_move_left_side = can_move_p2(&new_pos, direction, grid);
@@ -189,6 +202,7 @@ fn can_move_p2(pos: &Pos, direction: &Direction, grid: &Grid2) -> Option<HashSet
                 (_, None) => None,
                 (Some(mut vl), Some(vr)) => {
                     vl.extend(vr);
+                    vl.insert(new_pos);
                     Some(vl)
                 }
             }
@@ -202,6 +216,7 @@ fn can_move_p2(pos: &Pos, direction: &Direction, grid: &Grid2) -> Option<HashSet
                 (_, None) => None,
                 (Some(mut vl), Some(vr)) => {
                     vl.extend(vr);
+                    vl.insert(new_pos + Direction::Left.val());
                     Some(vl)
                 }
             }
@@ -211,111 +226,38 @@ fn can_move_p2(pos: &Pos, direction: &Direction, grid: &Grid2) -> Option<HashSet
 
 /// compute the new column after being pushed
 fn build_mini_grid(
-    initial_pos: &Pos,
-    final_positions: &HashSet<Pos>,
+    // initial_pos: &Pos,
+    boxes_to_move: &HashSet<Pos>,
     direction: &Direction,
-    grid: &Grid2,
 ) -> Grid2 {
     let mut mini_grid = Grid2::default();
-    let x_min = final_positions.iter().map(|p| p.re).min().unwrap();
-    let x_max = final_positions.iter().map(|p| p.re).max().unwrap();
-    match direction {
-        Direction::Up => {
-            let y_max = initial_pos.im;
-            for pos in final_positions {
-                // the final position is always empty
-                mini_grid.insert(*pos, ElementLarge::Empty);
-                let x = pos.re;
-                let y_min = pos.im;
-                for y in y_min..y_max {
-                    let p = Complex::new(x, y);
-                    let v = grid[&p];
-                    if match v {
-                        ElementLarge::Empty => true,
-                        ElementLarge::BoxLeft => {
-                            // check that the box right is in the mini grid also
-                            // but we need to
-                            p.re >= x_min && p.re < x_max && p.im != y_max
-                        }
-                        ElementLarge::BoxRight => {
-                            // check that the box right is in the mini grid also
-                            p.re > x_min && p.re <= x_max && p.im != y_max
-                        }
-                        ElementLarge::Wall => false,
-                    } {
-                        mini_grid.insert(p, v);
-                    }
-                }
-            }
-        }
-        Direction::Down => {
-            let y_min = initial_pos.im;
-            for pos in final_positions {
-                // the final position is always empty
-                mini_grid.insert(*pos, ElementLarge::Empty);
-                let x = pos.re;
-                let y_max = pos.im;
-                for y in y_min..y_max {
-                    let p = Complex::new(x, y);
-                    let v = grid[&p];
-                    if match v {
-                        ElementLarge::Empty => true,
-                        ElementLarge::BoxLeft => {
-                            // check that the box right is in the mini grid also
-                            p.re >= x_min && p.re < x_max && p.im != y_min
-                        }
-                        ElementLarge::BoxRight => {
-                            // check that the box right is in the mini grid also
-                            p.re > x_min && p.re <= x_max && p.im != y_min
-                        }
-                        ElementLarge::Wall => false,
-                    } {
-                        mini_grid.insert(p, v);
-                    }
-                }
-            }
-        }
-        _ => unreachable!(),
+    for box_left in boxes_to_move {
+        mini_grid.insert(*box_left + direction.val(), ElementLarge::BoxLeft);
+        mini_grid.insert(
+            *box_left + direction.val() + Direction::Right.val(),
+            ElementLarge::BoxRight,
+        );
     }
-    println!("before shifting");
-    _print_grid(&mini_grid, initial_pos);
-    let mut shifted_mini_grid = Grid2::default();
-    for (pos, _) in mini_grid.clone() {
-        let shifted_value = *mini_grid
-            .get(&(pos - direction.val()))
-            .unwrap_or(&ElementLarge::Empty);
-        shifted_mini_grid.insert(pos, shifted_value);
-    }
-    println!("after shifting");
-    _print_grid(&shifted_mini_grid, initial_pos);
-    shifted_mini_grid
+    // _print_grid(&mini_grid, initial_pos);
+    mini_grid
 }
 
 /// update the grid from final_pos to initial_pos
 fn update_grid_p2(
-    initial_pos: &Pos,
+    // initial_pos: &Pos,
     final_positions: &HashSet<Pos>,
     direction: &Direction,
     grid: &mut Grid2,
 ) {
-    match direction {
-        Direction::Left | Direction::Right => {
-            for final_pos in final_positions {
-                let mut current_pos = *final_pos;
-                while &current_pos != initial_pos {
-                    let new_val = grid[&(current_pos - direction.val())];
-                    grid.entry(current_pos).and_modify(|val| *val = new_val);
-                    current_pos -= direction.val();
-                }
-            }
-        }
-        Direction::Up | Direction::Down => {
-            let mini_grid: Grid2 = build_mini_grid(initial_pos, final_positions, direction, grid);
-            // _print_grid(&mini_grid, initial_pos);
-            // _print_grid(grid, initial_pos);
-            for (pos, elem) in mini_grid {
-                grid.insert(pos, elem);
-            }
+    let mini_grid: Grid2 = build_mini_grid(
+        //initial_pos,
+        final_positions,
+        direction,
+    );
+    for (pos, elem) in mini_grid.clone() {
+        grid.insert(pos, elem);
+        if !mini_grid.contains_key(&(pos - direction.val())) {
+            grid.insert(pos - direction.val(), ElementLarge::Empty);
         }
     }
 }
@@ -328,9 +270,14 @@ pub fn part2((robot_pos, grid, directions): (Pos, Grid2, Directions)) -> isize {
         .filter(|(_, v)| *v == &ElementLarge::BoxLeft)
         .count();
     for direction in directions {
-        println!("{direction:#?}");
+        // println!("{direction:#?}");
         if let Some(values_final_pos) = can_move_p2(&current_pos, &direction, &grid) {
-            update_grid_p2(&current_pos, &values_final_pos, &direction, &mut grid);
+            update_grid_p2(
+                //&current_pos,
+                &values_final_pos,
+                &direction,
+                &mut grid,
+            );
             current_pos += direction.val();
         }
         if grid
@@ -342,7 +289,7 @@ pub fn part2((robot_pos, grid, directions): (Pos, Grid2, Directions)) -> isize {
             _print_grid(&grid, &current_pos);
             panic!()
         }
-        _print_grid(&grid, &current_pos);
+        // _print_grid(&grid, &current_pos);
     }
     grid.into_iter()
         .filter(|(_, e)| *e == ElementLarge::BoxLeft)
@@ -467,11 +414,11 @@ mod tests {
         let (robot_pos, grid, _) = parse_input_p2(INPUT);
         let direction = Direction::Up;
         let can_move_up = can_move_p2(&robot_pos, &direction, &grid);
-        assert_eq!(can_move_up, Some(HashSet::from_iter([Complex::new(8, 3)])));
+        assert_eq!(can_move_up, Some(HashSet::default()));
         let can_move_left = can_move_p2(&robot_pos, &Direction::Left, &grid);
         assert_eq!(
             can_move_left,
-            Some(HashSet::from_iter([Complex::new(5, 4)]))
+            Some(HashSet::from_iter([Complex::new(6, 4)]))
         );
     }
 
@@ -484,7 +431,7 @@ mod tests {
         let can_move_up = can_move_p2(&pos, &direction, &grid);
         assert_eq!(
             can_move_up,
-            Some(HashSet::from_iter([Complex::new(6, 2), Complex::new(7, 2)]))
+            Some(HashSet::from_iter([Complex::new(6, 4), Complex::new(6, 3)]))
         );
     }
 
@@ -497,7 +444,7 @@ mod tests {
         let can_move_up = can_move_p2(&pos, &direction, &grid);
         assert_eq!(
             can_move_up,
-            Some(HashSet::from_iter([Complex::new(6, 2), Complex::new(7, 2)]))
+            Some(HashSet::from_iter([Complex::new(6, 4), Complex::new(6, 3)]))
         );
     }
 
@@ -521,7 +468,12 @@ mod tests {
         // 9 ####################
         let can_move_up = can_move_p2(&pos, &direction, &grid).unwrap();
 
-        update_grid_p2(&pos, &can_move_up, &direction, &mut grid);
+        update_grid_p2(
+            //&pos,
+            &can_move_up,
+            &direction,
+            &mut grid,
+        );
 
         // It should be this grid
         //   00000000001111111111
@@ -563,7 +515,12 @@ mod tests {
         // 9 ####################
         let can_move_down = can_move_p2(&pos, &direction, &grid).unwrap();
 
-        update_grid_p2(&pos, &can_move_down, &direction, &mut grid);
+        update_grid_p2(
+            //&pos,
+            &can_move_down,
+            &direction,
+            &mut grid,
+        );
 
         // It should be this grid
         //   00000000001111111111
@@ -664,8 +621,13 @@ mod tests {
         let direction = Direction::Up;
         let final_positions = can_move_p2(&robot_pos, &direction, &grid).unwrap();
         println!("{:#?}", final_positions);
-        update_grid_p2(&robot_pos, &final_positions, &direction, &mut grid);
+        update_grid_p2(
+            //&robot_pos,
+            &final_positions,
+            &direction,
+            &mut grid,
+        );
         _print_grid(&grid, &(robot_pos + direction.val()));
-        panic!();
+        // panic!();
     }
 }
