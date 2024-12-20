@@ -102,6 +102,255 @@ pub fn part1((robot_pos, grid, directions): (Pos, Grid, Directions)) -> isize {
         .sum()
 }
 
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+pub enum ElementLarge {
+    Empty,
+    Wall,
+    BoxLeft,
+    BoxRight,
+}
+
+type Grid2 = HashMap<Pos, ElementLarge>;
+
+pub fn parse_input_p2(input: &str) -> (Pos, Grid2, Directions) {
+    let (grid_str, instructions) = input.split_once("\n\n").unwrap();
+    let mut grid = HashMap::default();
+    let mut robot_pos = Complex::zero();
+    for (j, line) in grid_str.lines().enumerate() {
+        for (i, c) in line.chars().enumerate() {
+            let pos_left = Complex::new(2 * i as isize, j as isize);
+            let pos_right = Complex::new((2 * i + 1) as isize, j as isize);
+            let (elem1, elem2) = match c {
+                '#' => (ElementLarge::Wall, ElementLarge::Wall),
+                'O' => (ElementLarge::BoxLeft, ElementLarge::BoxRight),
+                '.' => (ElementLarge::Empty, ElementLarge::Empty),
+                '@' => {
+                    robot_pos = pos_left;
+                    (ElementLarge::Empty, ElementLarge::Empty)
+                }
+                c => panic!("Unexpected character {}", c),
+            };
+            grid.insert(pos_left, elem1);
+            grid.insert(pos_right, elem2);
+        }
+    }
+
+    let instructions = instructions.replace("\n", "");
+    let directions = instructions
+        .chars()
+        .map(|c| match c {
+            'v' => Direction::Down,
+            '<' => Direction::Left,
+            '>' => Direction::Right,
+            '^' => Direction::Up,
+            c => panic!("Unexpected character {}", c),
+        })
+        .collect();
+    (robot_pos, grid, directions)
+}
+
+fn _print_grid(grid: &Grid2, robot_pos: &Pos) {
+    let x_max = grid.iter().map(|(p, _)| p.re).max().unwrap();
+    let y_max = grid.iter().map(|(p, _)| p.im).max().unwrap();
+    for j in 0..=y_max {
+        for i in 0..=x_max {
+            let p = Complex::new(i, j);
+            if &p == robot_pos {
+                print!("@");
+                continue;
+            }
+            let c = match grid.get(&p) {
+                None => 'x',
+                Some(ElementLarge::Empty) => '.',
+                Some(ElementLarge::Wall) => '#',
+                Some(ElementLarge::BoxLeft) => '[',
+                Some(ElementLarge::BoxRight) => ']',
+            };
+            print!("{}", c);
+        }
+        println!();
+    }
+    println!();
+}
+
+fn can_move_p2(pos: &Pos, direction: &Direction, grid: &Grid2) -> Option<HashSet<Pos>> {
+    let new_pos = pos + direction.val();
+    match (grid[&new_pos], direction) {
+        (ElementLarge::Empty, _) => Some(HashSet::from_iter([new_pos])),
+        (ElementLarge::Wall, _) => None,
+        (_, Direction::Left | Direction::Right) => can_move_p2(&new_pos, direction, grid),
+        // the difficulty arises when we move a block up or down
+        (ElementLarge::BoxLeft, _) => {
+            let can_move_left_side = can_move_p2(&new_pos, direction, grid);
+            let can_move_right_side =
+                can_move_p2(&(new_pos + Direction::Right.val()), direction, grid);
+            match (can_move_left_side, can_move_right_side) {
+                (None, _) => None,
+                (_, None) => None,
+                (Some(mut vl), Some(vr)) => {
+                    vl.extend(vr);
+                    Some(vl)
+                }
+            }
+        }
+        (ElementLarge::BoxRight, _) => {
+            let can_move_left_side =
+                can_move_p2(&(new_pos + Direction::Left.val()), direction, grid);
+            let can_move_right_side = can_move_p2(&(new_pos), direction, grid);
+            match (can_move_left_side, can_move_right_side) {
+                (None, _) => None,
+                (_, None) => None,
+                (Some(mut vl), Some(vr)) => {
+                    vl.extend(vr);
+                    Some(vl)
+                }
+            }
+        }
+    }
+}
+
+/// compute the new column after being pushed
+fn build_mini_grid(
+    initial_pos: &Pos,
+    final_positions: &HashSet<Pos>,
+    direction: &Direction,
+    grid: &Grid2,
+) -> Grid2 {
+    let mut mini_grid = Grid2::default();
+    let x_min = final_positions.iter().map(|p| p.re).min().unwrap();
+    let x_max = final_positions.iter().map(|p| p.re).max().unwrap();
+    match direction {
+        Direction::Up => {
+            let y_max = initial_pos.im;
+            for pos in final_positions {
+                // the final position is always empty
+                mini_grid.insert(*pos, ElementLarge::Empty);
+                let x = pos.re;
+                let y_min = pos.im;
+                for y in y_min..y_max {
+                    let p = Complex::new(x, y);
+                    let v = grid[&p];
+                    if match v {
+                        ElementLarge::Empty => true,
+                        ElementLarge::BoxLeft => {
+                            // check that the box right is in the mini grid also
+                            // but we need to
+                            p.re >= x_min && p.re < x_max && p.im != y_max
+                        }
+                        ElementLarge::BoxRight => {
+                            // check that the box right is in the mini grid also
+                            p.re > x_min && p.re <= x_max && p.im != y_max
+                        }
+                        ElementLarge::Wall => false,
+                    } {
+                        mini_grid.insert(p, v);
+                    }
+                }
+            }
+        }
+        Direction::Down => {
+            let y_min = initial_pos.im;
+            for pos in final_positions {
+                // the final position is always empty
+                mini_grid.insert(*pos, ElementLarge::Empty);
+                let x = pos.re;
+                let y_max = pos.im;
+                for y in y_min..y_max {
+                    let p = Complex::new(x, y);
+                    let v = grid[&p];
+                    if match v {
+                        ElementLarge::Empty => true,
+                        ElementLarge::BoxLeft => {
+                            // check that the box right is in the mini grid also
+                            p.re >= x_min && p.re < x_max && p.im != y_min
+                        }
+                        ElementLarge::BoxRight => {
+                            // check that the box right is in the mini grid also
+                            p.re > x_min && p.re <= x_max && p.im != y_min
+                        }
+                        ElementLarge::Wall => false,
+                    } {
+                        mini_grid.insert(p, v);
+                    }
+                }
+            }
+        }
+        _ => unreachable!(),
+    }
+    println!("before shifting");
+    _print_grid(&mini_grid, initial_pos);
+    let mut shifted_mini_grid = Grid2::default();
+    for (pos, _) in mini_grid.clone() {
+        let shifted_value = *mini_grid
+            .get(&(pos - direction.val()))
+            .unwrap_or(&ElementLarge::Empty);
+        shifted_mini_grid.insert(pos, shifted_value);
+    }
+    println!("after shifting");
+    _print_grid(&shifted_mini_grid, initial_pos);
+    shifted_mini_grid
+}
+
+/// update the grid from final_pos to initial_pos
+fn update_grid_p2(
+    initial_pos: &Pos,
+    final_positions: &HashSet<Pos>,
+    direction: &Direction,
+    grid: &mut Grid2,
+) {
+    match direction {
+        Direction::Left | Direction::Right => {
+            for final_pos in final_positions {
+                let mut current_pos = *final_pos;
+                while &current_pos != initial_pos {
+                    let new_val = grid[&(current_pos - direction.val())];
+                    grid.entry(current_pos).and_modify(|val| *val = new_val);
+                    current_pos -= direction.val();
+                }
+            }
+        }
+        Direction::Up | Direction::Down => {
+            let mini_grid: Grid2 = build_mini_grid(initial_pos, final_positions, direction, grid);
+            // _print_grid(&mini_grid, initial_pos);
+            // _print_grid(grid, initial_pos);
+            for (pos, elem) in mini_grid {
+                grid.insert(pos, elem);
+            }
+        }
+    }
+}
+
+pub fn part2((robot_pos, grid, directions): (Pos, Grid2, Directions)) -> isize {
+    let mut current_pos = robot_pos;
+    let mut grid = grid;
+    let num_boxes = grid
+        .iter()
+        .filter(|(_, v)| *v == &ElementLarge::BoxLeft)
+        .count();
+    for direction in directions {
+        println!("{direction:#?}");
+        if let Some(values_final_pos) = can_move_p2(&current_pos, &direction, &grid) {
+            update_grid_p2(&current_pos, &values_final_pos, &direction, &mut grid);
+            current_pos += direction.val();
+        }
+        if grid
+            .iter()
+            .filter(|(_, v)| *v == &ElementLarge::BoxLeft)
+            .count()
+            != num_boxes
+        {
+            _print_grid(&grid, &current_pos);
+            panic!()
+        }
+        _print_grid(&grid, &current_pos);
+    }
+    grid.into_iter()
+        .filter(|(_, e)| *e == ElementLarge::BoxLeft)
+        .map(|(p, _)| p.re + 100 * p.im)
+        .sum()
+    // 1403280 too low
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -185,5 +434,238 @@ mod tests {
     fn test_part1() {
         let input = parse_input(INPUT);
         assert_eq!(part1(input), 10092);
+    }
+
+    #[test]
+    fn test_parse_input_p2() {
+        let (robot_pos, grid, directions) = parse_input_p2(INPUT);
+        // It should be this grid
+        //   00000000001111111111
+        //   01234567890123456789
+        // 0 ####################
+        // 1 ##....[]....[]..[]##
+        // 2 ##............[]..##
+        // 3 ##..[][]....[]..[]##
+        // 4 ##....[]@.....[]..##
+        // 5 ##[]##....[]......##
+        // 6 ##[]....[]....[]..##
+        // 7 ##..[][]..[]..[][]##
+        // 8 ##........[]......##
+        // 9 ####################
+        assert_eq!(robot_pos, Complex::new(8, 4));
+        assert_eq!(grid[&robot_pos], ElementLarge::Empty);
+        assert_eq!(grid[&Complex::zero()], ElementLarge::Wall);
+        assert_eq!(grid[&Complex::new(1, 1)], ElementLarge::Wall);
+        assert_eq!(grid[&Complex::new(6, 1)], ElementLarge::BoxLeft);
+        assert_eq!(grid[&Complex::new(7, 1)], ElementLarge::BoxRight);
+        assert_eq!(directions.len(), 700);
+        assert_eq!(directions[0], Direction::Left);
+    }
+
+    #[test]
+    fn test_can_move_p2() {
+        let (robot_pos, grid, _) = parse_input_p2(INPUT);
+        let direction = Direction::Up;
+        let can_move_up = can_move_p2(&robot_pos, &direction, &grid);
+        assert_eq!(can_move_up, Some(HashSet::from_iter([Complex::new(8, 3)])));
+        let can_move_left = can_move_p2(&robot_pos, &Direction::Left, &grid);
+        assert_eq!(
+            can_move_left,
+            Some(HashSet::from_iter([Complex::new(5, 4)]))
+        );
+    }
+
+    #[test]
+    fn test_can_move_p2_up_with_box_left() {
+        let (_, grid, _) = parse_input_p2(INPUT);
+        let direction = Direction::Up;
+        let pos = Complex::new(6, 5);
+        assert_eq!(grid[&(pos + direction.val())], ElementLarge::BoxLeft);
+        let can_move_up = can_move_p2(&pos, &direction, &grid);
+        assert_eq!(
+            can_move_up,
+            Some(HashSet::from_iter([Complex::new(6, 2), Complex::new(7, 2)]))
+        );
+    }
+
+    #[test]
+    fn test_can_move_p2_up_with_box_right() {
+        let (_, grid, _) = parse_input_p2(INPUT);
+        let direction = Direction::Up;
+        let pos = Complex::new(7, 5);
+        assert_eq!(grid[&(pos + direction.val())], ElementLarge::BoxRight);
+        let can_move_up = can_move_p2(&pos, &direction, &grid);
+        assert_eq!(
+            can_move_up,
+            Some(HashSet::from_iter([Complex::new(6, 2), Complex::new(7, 2)]))
+        );
+    }
+
+    #[test]
+    fn test_update_grid_p2() {
+        let (_, mut grid, _) = parse_input_p2(INPUT);
+        let direction = Direction::Up;
+        let pos = Complex::new(7, 5);
+
+        //   00000000001111111111
+        //   01234567890123456789
+        // 0 ####################
+        // 1 ##....[]....[]..[]##
+        // 2 ##............[]..##
+        // 3 ##..[][]....[]..[]##
+        // 4 ##....[]......[]..##
+        // 5 ##[]##.@..[]......##
+        // 6 ##[]....[]....[]..##
+        // 7 ##..[][]..[]..[][]##
+        // 8 ##........[]......##
+        // 9 ####################
+        let can_move_up = can_move_p2(&pos, &direction, &grid).unwrap();
+
+        update_grid_p2(&pos, &can_move_up, &direction, &mut grid);
+
+        // It should be this grid
+        //   00000000001111111111
+        //   01234567890123456789
+        // 0 ####################
+        // 1 ##....[]....[]..[]##
+        // 2 ##....[]......[]..##
+        // 3 ##..[][]....[]..[]##
+        // 4 ##.....@......[]..##
+        // 5 ##[]##....[]......##
+        // 6 ##[]....[]....[]..##
+        // 7 ##..[][]..[]..[][]##
+        // 8 ##........[]......##
+        // 9 ####################
+        assert_eq!(grid[&Complex::new(7, 4)], ElementLarge::Empty);
+        assert_eq!(grid[&Complex::new(7, 3)], ElementLarge::BoxRight);
+        assert_eq!(grid[&Complex::new(6, 3)], ElementLarge::BoxLeft);
+        assert_eq!(grid[&Complex::new(7, 2)], ElementLarge::BoxRight);
+        assert_eq!(grid[&Complex::new(6, 2)], ElementLarge::BoxLeft);
+    }
+
+    #[test]
+    fn test_update_grid_p2_down_box_left() {
+        let (_, mut grid, _) = parse_input_p2(INPUT);
+        let direction = Direction::Down;
+        let pos = Complex::new(14, 5);
+
+        //   00000000001111111111
+        //   01234567890123456789
+        // 0 ####################
+        // 1 ##....[]....[]..[]##
+        // 2 ##............[]..##
+        // 3 ##..[][]....[]..[]##
+        // 4 ##....[]......[]..##
+        // 5 ##[]##....[]..@...##
+        // 6 ##[]....[]....[]..##
+        // 7 ##..[][]..[]..[][]##
+        // 8 ##........[]......##
+        // 9 ####################
+        let can_move_down = can_move_p2(&pos, &direction, &grid).unwrap();
+
+        update_grid_p2(&pos, &can_move_down, &direction, &mut grid);
+
+        // It should be this grid
+        //   00000000001111111111
+        //   01234567890123456789
+        // 0 ####################
+        // 1 ##....[]....[]..[]##
+        // 2 ##............[]..##
+        // 3 ##..[][]....[]..[]##
+        // 4 ##....[]......[]..##
+        // 5 ##[]##....[]......##
+        // 6 ##[]....[]....@...##
+        // 7 ##..[][]..[]..[][]##
+        // 8 ##........[]..[]..##
+        // 9 ####################
+        assert_eq!(grid[&Complex::new(14, 5)], ElementLarge::Empty);
+        assert_eq!(grid[&Complex::new(14, 6)], ElementLarge::Empty);
+        assert_eq!(grid[&Complex::new(15, 7)], ElementLarge::BoxRight);
+        assert_eq!(grid[&Complex::new(14, 7)], ElementLarge::BoxLeft);
+        assert_eq!(grid[&Complex::new(15, 8)], ElementLarge::BoxRight);
+        assert_eq!(grid[&Complex::new(14, 8)], ElementLarge::BoxLeft);
+        _print_grid(&grid, &(pos + direction.val()));
+    }
+
+    #[test]
+    fn test_part2() {
+        //         let input = "#######
+        // #...#.#
+        // #.....#
+        // #..OO@#
+        // #..O..#
+        // #.....#
+        // #######
+
+        // <vv<<^^<<^^>v";
+        let (robot_pos, grid, directions) = parse_input_p2(INPUT);
+        _print_grid(&grid, &robot_pos);
+        assert_eq!(part2((robot_pos, grid, directions)), 9021);
+        // panic!();
+    }
+
+    #[test]
+    fn test_p2_complex_move() {
+        //   012345678
+        // 0 ##.......
+        // 1 ##.[][][]
+        // 2 ##[][][].
+        // 3 ##.[][][]
+        // 4 ##..@..[]
+        let robot_pos = Complex::new(4, 4);
+        let mut grid: Grid2 = HashMap::from_iter([
+            (Complex::new(0, 0), ElementLarge::Wall),
+            (Complex::new(0, 1), ElementLarge::Wall),
+            (Complex::new(0, 2), ElementLarge::Wall),
+            (Complex::new(0, 3), ElementLarge::Wall),
+            (Complex::new(0, 4), ElementLarge::Wall),
+            (Complex::new(1, 0), ElementLarge::Wall),
+            (Complex::new(1, 1), ElementLarge::Wall),
+            (Complex::new(1, 2), ElementLarge::Wall),
+            (Complex::new(1, 3), ElementLarge::Wall),
+            (Complex::new(1, 4), ElementLarge::Wall),
+            (Complex::new(2, 0), ElementLarge::Empty),
+            (Complex::new(2, 1), ElementLarge::Empty),
+            (Complex::new(2, 2), ElementLarge::BoxLeft),
+            (Complex::new(2, 3), ElementLarge::Empty),
+            (Complex::new(2, 4), ElementLarge::Empty),
+            (Complex::new(3, 0), ElementLarge::Empty),
+            (Complex::new(3, 1), ElementLarge::BoxLeft),
+            (Complex::new(3, 2), ElementLarge::BoxRight),
+            (Complex::new(3, 3), ElementLarge::BoxLeft),
+            (Complex::new(3, 4), ElementLarge::Empty),
+            (Complex::new(4, 0), ElementLarge::Empty),
+            (Complex::new(4, 1), ElementLarge::BoxRight),
+            (Complex::new(4, 2), ElementLarge::BoxLeft),
+            (Complex::new(4, 3), ElementLarge::BoxRight),
+            (Complex::new(4, 4), ElementLarge::Empty),
+            (Complex::new(5, 0), ElementLarge::Empty),
+            (Complex::new(5, 1), ElementLarge::BoxLeft),
+            (Complex::new(5, 2), ElementLarge::BoxRight),
+            (Complex::new(5, 3), ElementLarge::BoxLeft),
+            (Complex::new(5, 4), ElementLarge::Empty),
+            (Complex::new(6, 0), ElementLarge::Empty),
+            (Complex::new(6, 1), ElementLarge::BoxRight),
+            (Complex::new(6, 2), ElementLarge::BoxLeft),
+            (Complex::new(6, 3), ElementLarge::BoxRight),
+            (Complex::new(6, 4), ElementLarge::Empty),
+            (Complex::new(7, 0), ElementLarge::Empty),
+            (Complex::new(7, 1), ElementLarge::BoxLeft),
+            (Complex::new(7, 2), ElementLarge::BoxRight),
+            (Complex::new(7, 3), ElementLarge::BoxLeft),
+            (Complex::new(7, 4), ElementLarge::BoxLeft),
+            (Complex::new(8, 0), ElementLarge::Empty),
+            (Complex::new(8, 1), ElementLarge::BoxRight),
+            (Complex::new(8, 2), ElementLarge::Empty),
+            (Complex::new(8, 3), ElementLarge::BoxRight),
+            (Complex::new(8, 4), ElementLarge::BoxRight),
+        ]);
+        _print_grid(&grid, &robot_pos);
+        let direction = Direction::Up;
+        let final_positions = can_move_p2(&robot_pos, &direction, &grid).unwrap();
+        println!("{:#?}", final_positions);
+        update_grid_p2(&robot_pos, &final_positions, &direction, &mut grid);
+        _print_grid(&grid, &(robot_pos + direction.val()));
+        panic!();
     }
 }
