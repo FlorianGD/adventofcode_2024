@@ -177,13 +177,13 @@ fn _print_grid(grid: &Grid2, robot_pos: &Pos) {
 }
 
 /// Give the Left side of each box that can move
-fn can_move_p2(pos: &Pos, direction: &Direction, grid: &Grid2) -> Option<HashSet<Pos>> {
+fn boxes_to_move(pos: &Pos, direction: &Direction, grid: &Grid2) -> Option<HashSet<Pos>> {
     let new_pos = pos + direction.val();
     match (grid[&new_pos], direction) {
         (ElementLarge::Empty, _) => Some(HashSet::default()),
         (ElementLarge::Wall, _) => None,
         (e, Direction::Left | Direction::Right) => {
-            if let Some(mut r) = can_move_p2(&new_pos, direction, grid) {
+            if let Some(mut r) = boxes_to_move(&new_pos, direction, grid) {
                 if e == ElementLarge::BoxLeft {
                     r.insert(new_pos);
                 }
@@ -194,9 +194,9 @@ fn can_move_p2(pos: &Pos, direction: &Direction, grid: &Grid2) -> Option<HashSet
         }
         // the difficulty arises when we move a block up or down
         (ElementLarge::BoxLeft, _) => {
-            let can_move_left_side = can_move_p2(&new_pos, direction, grid);
+            let can_move_left_side = boxes_to_move(&new_pos, direction, grid);
             let can_move_right_side =
-                can_move_p2(&(new_pos + Direction::Right.val()), direction, grid);
+                boxes_to_move(&(new_pos + Direction::Right.val()), direction, grid);
             match (can_move_left_side, can_move_right_side) {
                 (None, _) => None,
                 (_, None) => None,
@@ -209,8 +209,8 @@ fn can_move_p2(pos: &Pos, direction: &Direction, grid: &Grid2) -> Option<HashSet
         }
         (ElementLarge::BoxRight, _) => {
             let can_move_left_side =
-                can_move_p2(&(new_pos + Direction::Left.val()), direction, grid);
-            let can_move_right_side = can_move_p2(&(new_pos), direction, grid);
+                boxes_to_move(&(new_pos + Direction::Left.val()), direction, grid);
+            let can_move_right_side = boxes_to_move(&(new_pos), direction, grid);
             match (can_move_left_side, can_move_right_side) {
                 (None, _) => None,
                 (_, None) => None,
@@ -225,11 +225,7 @@ fn can_move_p2(pos: &Pos, direction: &Direction, grid: &Grid2) -> Option<HashSet
 }
 
 /// compute the new column after being pushed
-fn build_mini_grid(
-    // initial_pos: &Pos,
-    boxes_to_move: &HashSet<Pos>,
-    direction: &Direction,
-) -> Grid2 {
+fn build_mini_grid(boxes_to_move: &HashSet<Pos>, direction: &Direction) -> Grid2 {
     let mut mini_grid = Grid2::default();
     for box_left in boxes_to_move {
         mini_grid.insert(*box_left + direction.val(), ElementLarge::BoxLeft);
@@ -238,22 +234,12 @@ fn build_mini_grid(
             ElementLarge::BoxRight,
         );
     }
-    // _print_grid(&mini_grid, initial_pos);
     mini_grid
 }
 
 /// update the grid from final_pos to initial_pos
-fn update_grid_p2(
-    // initial_pos: &Pos,
-    final_positions: &HashSet<Pos>,
-    direction: &Direction,
-    grid: &mut Grid2,
-) {
-    let mini_grid: Grid2 = build_mini_grid(
-        //initial_pos,
-        final_positions,
-        direction,
-    );
+fn update_grid_p2(boxes_left_to_move: &HashSet<Pos>, direction: &Direction, grid: &mut Grid2) {
+    let mini_grid: Grid2 = build_mini_grid(boxes_left_to_move, direction);
     for (pos, elem) in mini_grid.clone() {
         grid.insert(pos, elem);
         if !mini_grid.contains_key(&(pos - direction.val())) {
@@ -265,37 +251,16 @@ fn update_grid_p2(
 pub fn part2((robot_pos, grid, directions): (Pos, Grid2, Directions)) -> isize {
     let mut current_pos = robot_pos;
     let mut grid = grid;
-    let num_boxes = grid
-        .iter()
-        .filter(|(_, v)| *v == &ElementLarge::BoxLeft)
-        .count();
     for direction in directions {
-        // println!("{direction:#?}");
-        if let Some(values_final_pos) = can_move_p2(&current_pos, &direction, &grid) {
-            update_grid_p2(
-                //&current_pos,
-                &values_final_pos,
-                &direction,
-                &mut grid,
-            );
+        if let Some(boxes_left_to_move) = boxes_to_move(&current_pos, &direction, &grid) {
+            update_grid_p2(&boxes_left_to_move, &direction, &mut grid);
             current_pos += direction.val();
         }
-        if grid
-            .iter()
-            .filter(|(_, v)| *v == &ElementLarge::BoxLeft)
-            .count()
-            != num_boxes
-        {
-            _print_grid(&grid, &current_pos);
-            panic!()
-        }
-        // _print_grid(&grid, &current_pos);
     }
     grid.into_iter()
         .filter(|(_, e)| *e == ElementLarge::BoxLeft)
         .map(|(p, _)| p.re + 100 * p.im)
         .sum()
-    // 1403280 too low
 }
 
 #[cfg(test)]
@@ -413,9 +378,9 @@ mod tests {
     fn test_can_move_p2() {
         let (robot_pos, grid, _) = parse_input_p2(INPUT);
         let direction = Direction::Up;
-        let can_move_up = can_move_p2(&robot_pos, &direction, &grid);
+        let can_move_up = boxes_to_move(&robot_pos, &direction, &grid);
         assert_eq!(can_move_up, Some(HashSet::default()));
-        let can_move_left = can_move_p2(&robot_pos, &Direction::Left, &grid);
+        let can_move_left = boxes_to_move(&robot_pos, &Direction::Left, &grid);
         assert_eq!(
             can_move_left,
             Some(HashSet::from_iter([Complex::new(6, 4)]))
@@ -428,7 +393,7 @@ mod tests {
         let direction = Direction::Up;
         let pos = Complex::new(6, 5);
         assert_eq!(grid[&(pos + direction.val())], ElementLarge::BoxLeft);
-        let can_move_up = can_move_p2(&pos, &direction, &grid);
+        let can_move_up = boxes_to_move(&pos, &direction, &grid);
         assert_eq!(
             can_move_up,
             Some(HashSet::from_iter([Complex::new(6, 4), Complex::new(6, 3)]))
@@ -441,7 +406,7 @@ mod tests {
         let direction = Direction::Up;
         let pos = Complex::new(7, 5);
         assert_eq!(grid[&(pos + direction.val())], ElementLarge::BoxRight);
-        let can_move_up = can_move_p2(&pos, &direction, &grid);
+        let can_move_up = boxes_to_move(&pos, &direction, &grid);
         assert_eq!(
             can_move_up,
             Some(HashSet::from_iter([Complex::new(6, 4), Complex::new(6, 3)]))
@@ -466,7 +431,7 @@ mod tests {
         // 7 ##..[][]..[]..[][]##
         // 8 ##........[]......##
         // 9 ####################
-        let can_move_up = can_move_p2(&pos, &direction, &grid).unwrap();
+        let can_move_up = boxes_to_move(&pos, &direction, &grid).unwrap();
 
         update_grid_p2(
             //&pos,
@@ -513,7 +478,7 @@ mod tests {
         // 7 ##..[][]..[]..[][]##
         // 8 ##........[]......##
         // 9 ####################
-        let can_move_down = can_move_p2(&pos, &direction, &grid).unwrap();
+        let can_move_down = boxes_to_move(&pos, &direction, &grid).unwrap();
 
         update_grid_p2(
             //&pos,
@@ -619,7 +584,7 @@ mod tests {
         ]);
         _print_grid(&grid, &robot_pos);
         let direction = Direction::Up;
-        let final_positions = can_move_p2(&robot_pos, &direction, &grid).unwrap();
+        let final_positions = boxes_to_move(&robot_pos, &direction, &grid).unwrap();
         println!("{:#?}", final_positions);
         update_grid_p2(
             //&robot_pos,
