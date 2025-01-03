@@ -142,18 +142,20 @@ pub fn part1((grid, start, end): (Grid, Position, Position)) -> usize {
 pub fn part1_2((grid, start, end): (Grid, Position, Position)) -> usize {
     let start = Pos::new(start, false);
     let (base_path, _) = dijkstra(&start, |p| p.successors(&grid), |p| p.pos == end).unwrap();
-    find_cheats(&base_path, 2, 101)
+    find_cheats(&base_path, 2, 100)
 }
 
 fn find_cheats(path: &[Pos], can_skip_length: usize, target_skip: usize) -> usize {
     let mut tot = 0;
     for (idx, pos) in path[..path.len() - target_skip].iter().enumerate() {
-        tot += path[idx + target_skip..]
+        tot += path[idx + 1 + target_skip..]
             .iter()
             .enumerate()
-            .filter(|(_, p)| {
+            .filter(|(l, p)| {
                 let distance = (pos.pos - p.pos).l1_norm() as usize;
-                distance > 1 && distance <= can_skip_length
+                let reachable_by_skip = distance > 1 && distance <= can_skip_length;
+                let enough_saved = *l + 1 >= distance;
+                reachable_by_skip && enough_saved
             })
             .count();
     }
@@ -164,8 +166,7 @@ fn find_cheats(path: &[Pos], can_skip_length: usize, target_skip: usize) -> usiz
 pub fn part2((grid, start, end): (Grid, Position, Position)) -> usize {
     let start = Pos::new(start, false);
     let (base_path, _) = dijkstra(&start, |p| p.successors(&grid), |p| p.pos == end).unwrap();
-    find_cheats(&base_path, 20, 101)
-    // 1036312 too high
+    find_cheats(&base_path, 20, 100)
 }
 
 #[cfg(test)]
@@ -209,9 +210,9 @@ mod tests {
         let (grid, start, end) = parse_input(INPUT);
         let start = Pos::new(start, false);
         let (base_path, _) = dijkstra(&start, |p| p.successors(&grid), |p| p.pos == end).unwrap();
-        // let res = find_cheats(&base_path, 2, 3);
-        // assert_eq!(res, 44);
-        let res_p2 = find_cheats(&base_path, 20, 77);
+        let res = find_cheats(&base_path, 2, 2);
+        assert_eq!(res, 44);
+        let res_p2 = find_cheats(&base_path, 20, 50);
         assert_eq!(res_p2, 285);
     }
 }
